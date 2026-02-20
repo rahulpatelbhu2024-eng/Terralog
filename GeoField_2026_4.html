@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>GeoField 2026 | Field Data System</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --rock:#1c1c1e;--slate:#2c2c2e;--shale:#3a3a3c;--iron:#48484a;--quartz:#8e8e93;
+  --chalk:#e5e5ea;--white:#f5f5f7;
+  --amber:#ffb340;--amber-dim:#3d2f00;
+  --green:#30d158;--green-dim:#003d14;
+  --blue:#0a84ff;--blue-dim:#001a3d;
+  --red:#ff453a;--red-dim:#3d0f0d;
+  --purple:#bf5af2;--purple-dim:#2a0a3d;
+  --teal:#5ac8fa;--teal-dim:#002030;
+  --font-mono:'Space Mono',monospace;--font-display:'Syne',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--rock);color:var(--white);font-family:var(--font-display);min-height:100vh;padding-bottom:100px;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:9999}
+
+/* PERMISSION BANNER */
+.perm-banner{background:linear-gradient(135deg,var(--blue-dim),var(--amber-dim));border-bottom:1px solid var(--amber);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.68rem;color:var(--chalk)}
+.perm-banner.hidden{display:none}
+.perm-pill{padding:5px 11px;border-radius:14px;border:none;font-family:var(--font-display);font-size:.62rem;font-weight:700;cursor:pointer;transition:all .15s}
+.perm-pill:active{transform:scale(.96)}
+.perm-pill.gps{background:var(--green);color:var(--rock)}
+.perm-pill.cam{background:var(--amber);color:var(--rock)}
+.perm-pill.sensor{background:var(--blue);color:#fff}
+
+/* PERMISSION STATUS ROW */
+.perm-status-row{display:flex;gap:6px;padding:7px 14px;background:var(--slate);border-bottom:1px solid var(--shale);overflow-x:auto;scrollbar-width:none}
+.perm-status-row::-webkit-scrollbar{display:none}
+.perm-dot{display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:.52rem;color:var(--quartz);white-space:nowrap;padding:3px 8px;border-radius:8px;background:var(--rock);border:1px solid var(--shale)}
+.perm-dot .dot{width:6px;height:6px;border-radius:50%;background:var(--iron);flex-shrink:0}
+.perm-dot.active .dot{background:var(--green);box-shadow:0 0 5px var(--green)}
+.perm-dot.denied .dot{background:var(--red)}
+.perm-dot.pending .dot{background:var(--amber);animation:pulse 1.5s infinite}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#1c1c1e,#2c2c2e);border-bottom:2px solid var(--amber);padding:13px 18px 10px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between}
+.header-title{font-size:1.1rem;font-weight:800;letter-spacing:-.03em}
+.header-title span{color:var(--amber)}
+.header-meta{font-family:var(--font-mono);font-size:.58rem;color:var(--quartz);text-align:right;line-height:1.6}
+.live-dot{display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-right:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* TAB BAR */
+.tab-bar{display:flex;overflow-x:auto;background:var(--slate);border-bottom:1px solid var(--shale);scrollbar-width:none;position:sticky;top:57px;z-index:99}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{flex:0 0 auto;padding:10px 15px;font-family:var(--font-display);font-size:.68rem;font-weight:600;color:var(--quartz);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;letter-spacing:.02em}
+.tab-btn.active{color:var(--amber);border-bottom-color:var(--amber)}
+.tab-btn:hover:not(.active){color:var(--chalk)}
+
+/* PANELS */
+.panel{display:none;padding:14px;animation:fadeIn .22s ease}
+.panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* CARDS */
+.card{background:var(--slate);border-radius:16px;padding:14px;margin-bottom:12px;border:1px solid var(--shale)}
+.card-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.card-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.card-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--chalk)}
+.card-subtitle{font-size:.6rem;color:var(--quartz);font-family:var(--font-mono)}
+
+/* GPS DISPLAY */
+.gps-display{background:var(--rock);border:1px solid var(--green);border-radius:10px;padding:12px 14px;font-family:var(--font-mono);display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gps-display.tracking{border-color:var(--amber);animation:gpsPulse 2s infinite}
+@keyframes gpsPulse{0%,100%{box-shadow:0 0 0 0 rgba(48,209,88,0)}50%{box-shadow:0 0 0 5px rgba(48,209,88,.12)}}
+.gps-row{display:flex;flex-direction:column;gap:2px}
+.gps-lbl{font-size:.5rem;color:var(--quartz);text-transform:uppercase;letter-spacing:.1em}
+.gps-val{color:var(--green);font-size:.82rem;font-weight:700}
+.gps-val.loading{color:var(--amber);animation:pulse 0.6s infinite}
+.gps-val.err{color:var(--red);font-size:.65rem}
+.acc-bar-wrap{grid-column:1/-1;height:3px;background:var(--shale);border-radius:2px;overflow:hidden}
+.acc-bar{height:100%;background:var(--green);border-radius:2px;transition:width .5s,background .5s}
+
+/* GPS ACTIONS */
+.gps-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.gps-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 6px;border-radius:10px;border:1px solid var(--shale);background:var(--rock);cursor:pointer;transition:all .15s;font-family:var(--font-display)}
+.gps-btn:active{transform:scale(.96)}
+.gps-btn .gi{font-size:1.2rem}
+.gps-btn .gl{font-size:.52rem;font-weight:700;color:var(--quartz);text-transform:uppercase;letter-spacing:.06em;text-align:center}
+.gps-btn.live{border-color:var(--green)}.gps-btn.live .gl{color:var(--green)}
+.gps-btn.watch.on{border-color:var(--amber);background:var(--amber-dim)}.gps-btn.watch.on .gl{color:var(--amber)}
+.gps-btn.manual-btn{border-color:var(--blue)}.gps-btn.manual-btn .gl{color:var(--blue)}
+.gps-status-txt{font-family:var(--font-mono);font-size:.56rem;color:var(--quartz);text-align:center;margin-top:8px;line-height:1.5}
+
+/* MANUAL GPS */
+.manual-gps-panel{display:none;background:var(--rock);border:1px solid var(--blue);border-radius:10px;padding:12px;margin-top:10px;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.manual-gps-panel.open{display:grid}
+
+/* COMPASS */
+.compass-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px}
+.compass-cell{background:var(--rock);border:1px solid var(--shale);border-radius:10px;padding:12px 8px;text-align:center;transition:border-color .3s}
+.compass-cell.live{border-color:var(--green)}
+.compass-lbl{font-size:.5rem;color:var(--quartz);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.compass-val{font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--amber);letter-spacing:-.02em;transition:all .08s}
+.compass-val.live{color:var(--green)}
+
+/* PHOTO SECTION */
+.photo-section{background:var(--rock);border:2px dashed var(--shale);border-radius:12px;padding:14px}
+.photo-section.has-photos{border-style:solid;border-color:var(--amber)}
+.photo-action-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.photo-btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:14px 8px;border-radius:12px;border:1px solid var(--shale);background:var(--slate);cursor:pointer;transition:all .15s;font-family:var(--font-display)}
+.photo-btn:active{transform:scale(.97)}
+.photo-btn .pi{font-size:1.5rem}
+.photo-btn .pl{font-size:.65rem;font-weight:700;text-align:center}
+.photo-btn .ps{font-size:.52rem;color:var(--quartz);font-family:var(--font-mono);text-align:center}
+.photo-btn.cam-btn{border-color:var(--amber)}.photo-btn.cam-btn .pl{color:var(--amber)}
+.photo-btn.gal-btn{border-color:var(--purple)}.photo-btn.gal-btn .pl{color:var(--purple)}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.photo-wrap{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--shale)}
+.photo-thumb{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer}
+.photo-del{position:absolute;top:3px;right:3px;width:20px;height:20px;background:rgba(255,69,58,.9);border:none;border-radius:50%;color:#fff;font-size:.65rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700}
+.photo-save-thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;background:rgba(48,209,88,.9);border:none;border-radius:50%;color:var(--rock);font-size:.65rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700}
+.photo-lbl{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.8));font-family:var(--font-mono);font-size:.45rem;color:var(--chalk);padding:4px 4px 3px;text-align:center}
+.photo-count{display:inline-flex;align-items:center;gap:4px;background:var(--amber-dim);border:1px solid var(--amber);color:var(--amber);font-family:var(--font-mono);font-size:.58rem;padding:3px 8px;border-radius:8px;margin-top:8px}
+
+/* LIGHTBOX */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9000;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+.lightbox.open{display:flex}
+.lightbox img{max-width:95vw;max-height:68vh;border-radius:10px;object-fit:contain}
+.lb-close{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--chalk);font-size:2rem;cursor:pointer}
+.lb-info{margin-top:10px;font-family:var(--font-mono);font-size:.6rem;color:var(--quartz);text-align:center;max-width:90vw;word-break:break-all}
+.lb-action-btn{padding:9px 16px;border-radius:10px;border:none;font-family:var(--font-display);font-size:.72rem;font-weight:700;cursor:pointer;transition:all .15s}
+.lb-action-btn:active{transform:scale(.96)}
+.lb-save-btn{background:var(--green);color:var(--rock)}
+.lb-prev-btn,.lb-next-btn{background:var(--shale);color:var(--chalk)}
+.lb-close-btn{background:var(--iron);color:var(--chalk)}
+
+/* FORMS */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.form-row.three{grid-template-columns:1fr 1fr 1fr}
+.form-row.full{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+label{font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--quartz)}
+input,select,textarea{background:var(--rock);border:1px solid var(--shale);border-radius:8px;color:var(--white);font-family:var(--font-display);font-size:.8rem;padding:9px 12px;width:100%;outline:none;transition:border-color .2s;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--amber)}
+input::placeholder,textarea::placeholder{color:var(--iron)}
+select option{background:var(--slate)}
+textarea{resize:vertical;min-height:56px;line-height:1.5}
+input[type="number"]{font-family:var(--font-mono)}
+#camera-input,#gallery-input{display:none}
+
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border-radius:10px;border:none;font-family:var(--font-display);font-size:.78rem;font-weight:700;cursor:pointer;transition:all .18s;letter-spacing:.02em}
+.btn:active{transform:scale(.97)}
+.btn-amber{background:var(--amber);color:var(--rock)}
+.btn-green{background:var(--green);color:var(--rock)}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-purple{background:var(--purple);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--shale);color:var(--chalk)}
+.btn-outline:hover{border-color:var(--amber);color:var(--amber)}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{flex:1}
+.btn-full{width:100%}
+.btn-sm{padding:7px 12px;font-size:.7rem}
+
+/* MISC */
+.record-badge{background:var(--rock);border:1px solid var(--amber);color:var(--amber);font-family:var(--font-mono);font-size:.63rem;padding:4px 10px;border-radius:20px;text-align:center;margin-bottom:12px}
+.chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chip{padding:5px 12px;border-radius:20px;font-size:.66rem;font-weight:600;border:1px solid var(--shale);background:var(--rock);color:var(--quartz);cursor:pointer;transition:all .15s}
+.chip.selected{border-color:var(--amber);color:var(--amber);background:var(--amber-dim)}
+.section-divider{display:flex;align-items:center;gap:10px;margin:16px 0 10px}
+.section-divider span{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--quartz);white-space:nowrap}
+.section-divider::before,.section-divider::after{content:'';flex:1;height:1px;background:var(--shale)}
+.strat-entry{background:var(--rock);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:8px;font-size:.75rem}
+.thickness-badge{display:inline-block;background:var(--blue-dim);color:var(--blue);font-family:var(--font-mono);font-size:.62rem;padding:2px 8px;border-radius:4px;margin-bottom:4px}
+.itin-card{background:var(--rock);border-radius:12px;padding:13px 14px;margin-bottom:10px;border-left:3px solid var(--shale);display:flex;gap:12px;align-items:flex-start}
+.itin-card.vindhyan{border-left-color:var(--green)}.itin-card.gondwana{border-left-color:var(--amber)}.itin-card.jharkhand{border-left-color:var(--purple)}
+.itin-day{font-family:var(--font-mono);font-size:1.2rem;font-weight:700;color:var(--quartz);line-height:1;min-width:28px}
+.itin-location{font-size:.85rem;font-weight:700;color:var(--white);margin-bottom:2px}
+.itin-theme{font-size:.66rem;color:var(--quartz);line-height:1.4}
+.itin-date{font-family:var(--font-mono);font-size:.58rem;color:var(--iron);margin-top:3px}
+.itin-badge{font-size:.52rem;padding:2px 7px;border-radius:4px;font-weight:700;letter-spacing:.06em;flex-shrink:0}
+.itin-badge.v{background:var(--green-dim);color:var(--green)}.itin-badge.g{background:var(--amber-dim);color:var(--amber)}.itin-badge.j{background:var(--purple-dim);color:var(--purple)}
+.entry-card{background:var(--rock);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid var(--shale);font-size:.72rem}
+.entry-card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.entry-stn{font-family:var(--font-mono);font-size:.88rem;font-weight:700;color:var(--amber)}
+.entry-time{font-family:var(--font-mono);font-size:.58rem;color:var(--iron)}
+.entry-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.entry-tag{font-size:.56rem;padding:2px 7px;border-radius:4px;font-weight:600;background:var(--shale);color:var(--quartz)}
+.mine-alert{background:linear-gradient(135deg,var(--red-dim),var(--amber-dim));border:1px solid var(--amber);border-radius:10px;padding:10px 14px;font-size:.7rem;color:var(--amber);margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat-card{background:var(--rock);border-radius:12px;padding:14px;text-align:center;border:1px solid var(--shale)}
+.stat-value{font-family:var(--font-mono);font-size:2rem;font-weight:700;line-height:1}
+.stat-label{font-size:.58rem;color:var(--quartz);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+.ref-table{width:100%;border-collapse:collapse;font-size:.7rem;margin-bottom:14px}
+.ref-table th{background:var(--shale);color:var(--quartz);padding:7px 10px;text-align:left;font-size:.56rem;text-transform:uppercase;letter-spacing:.06em}
+.ref-table td{padding:7px 10px;border-top:1px solid var(--shale);color:var(--chalk)}
+.ref-table tr:hover td{background:rgba(255,255,255,.03)}
+.abbrev-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.abbrev-item{background:var(--rock);border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:8px}
+.abbrev-code{font-family:var(--font-mono);font-size:.68rem;font-weight:700;color:var(--amber);min-width:32px}
+.abbrev-meaning{font-size:.66rem;color:var(--quartz)}
+.diary-day-tab{display:flex;overflow-x:auto;gap:6px;padding-bottom:10px;scrollbar-width:none}
+.diary-day-tab::-webkit-scrollbar{display:none}
+.diary-day-btn{flex:0 0 auto;width:46px;height:46px;border-radius:10px;background:var(--rock);border:1px solid var(--shale);color:var(--quartz);font-family:var(--font-mono);font-size:.7rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transition:all .15s}
+.diary-day-btn.active{background:var(--amber-dim);border-color:var(--amber);color:var(--amber)}
+.diary-day-btn.filled{border-color:var(--green);color:var(--green)}
+.no-data{text-align:center;padding:28px;color:var(--iron);font-family:var(--font-mono);font-size:.72rem}
+.toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--green);color:var(--rock);font-family:var(--font-mono);font-size:.73rem;font-weight:700;padding:10px 20px;border-radius:30px;opacity:0;transition:all .3s;pointer-events:none;z-index:9998;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error{background:var(--red);color:#fff}
+.toast.warn{background:var(--amber);color:var(--rock)}
+@media(max-width:380px){.compass-val{font-size:1.1rem}.form-row{grid-template-columns:1fr}.form-row.three{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<!-- Hidden file inputs -->
+<input type="file" id="camera-input" accept="image/*" capture="environment" multiple>
+<input type="file" id="gallery-input" accept="image/*" multiple>
+
+<!-- PERMISSION BANNER -->
+<div class="perm-banner" id="perm-banner">
+  <div>⚡ Enable device access for full field functionality</div>
+  <div style="display:flex;gap:6px;flex-shrink:0">
+    <button class="perm-pill gps" onclick="requestGPS()">📍 GPS</button>
+    <button class="perm-pill cam" onclick="requestCamera()">📷 Camera</button>
+    <button class="perm-pill sensor" onclick="requestSensors()">🧭 Compass</button>
+  </div>
+</div>
+
+<!-- PERMISSION STATUS -->
+<div class="perm-status-row">
+  <div class="perm-dot pending" id="pd-gps"><span class="dot"></span>GPS</div>
+  <div class="perm-dot pending" id="pd-cam"><span class="dot"></span>Camera</div>
+  <div class="perm-dot pending" id="pd-sensor"><span class="dot"></span>Compass</div>
+  <div class="perm-dot" id="pd-gallery"><span class="dot"></span>Gallery</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="header-title">⚒️ <span>GEO</span>FIELD 2026</div>
+    <div style="font-size:.56rem;color:var(--quartz);font-family:var(--font-mono);margin-top:2px">Vindhyan → Gondwana Basin</div>
+  </div>
+  <div class="header-meta">
+    <span class="live-dot"></span>LIVE<br>
+    <span id="hdr-time">--:--</span><br>
+    <span id="hdr-rec">0 REC</span>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('station',this)">📍 Station</button>
+  <button class="tab-btn" onclick="switchTab('structural',this)">🧭 Structure</button>
+  <button class="tab-btn" onclick="switchTab('specimen',this)">🪨 Specimen</button>
+  <button class="tab-btn" onclick="switchTab('strat',this)">📊 Strat</button>
+  <button class="tab-btn" onclick="switchTab('mine',this)">⛏️ Mine</button>
+  <button class="tab-btn" onclick="switchTab('diary',this)">📓 Diary</button>
+  <button class="tab-btn" onclick="switchTab('records',this)">🗂️ Records</button>
+  <button class="tab-btn" onclick="switchTab('itinerary',this)">🗺️ Route</button>
+  <button class="tab-btn" onclick="switchTab('reference',this)">📚 Ref</button>
+</div>
+
+<!-- ═══ STATION ═══ -->
+<div id="panel-station" class="panel active">
+  <div class="record-badge"><span id="stn-rec-count">0</span> total field records stored on this device</div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--green-dim)">📡</div><div><div class="card-title">Station Metadata</div><div class="card-subtitle">Core identification for this observation point</div></div></div>
+    <div class="form-row">
+      <div class="form-group"><label>Station No.</label><input type="number" id="stn-no" value="1" min="1"></div>
+      <div class="form-group"><label>Day</label><select id="day-no">
+        <option value="1">Day 1 — 20-Feb</option><option value="2">Day 2 — 21-Feb</option><option value="3">Day 3 — 22-Feb</option>
+        <option value="4">Day 4 — 23-Feb</option><option value="5">Day 5 — 24-Feb</option><option value="6">Day 6 — 25-Feb</option>
+        <option value="7">Day 7 — 26-Feb</option><option value="8">Day 8 — 27-Feb</option><option value="9">Day 9 — 28-Feb</option>
+        <option value="10">Day 10 — 01-Mar</option>
+      </select></div>
+    </div>
+    <div class="form-row full"><div class="form-group"><label>Location Name / Landmark</label><input type="text" id="location-name" placeholder="e.g. Markundi Ghat cliff section, Son River bank"></div></div>
+    <div class="form-row">
+      <div class="form-group"><label>Stop / Area</label><select id="area-select">
+        <option>Lakhaniyadari</option><option>Markundi Ghat</option><option>Salkhham Fossil Park</option>
+        <option>Chopan</option><option>Singrauli Mine</option><option>Singrauli Industrial</option>
+        <option>Dudhi Nala, Kuju</option><option>Transit</option>
+      </select></div>
+      <div class="form-group"><label>Weather</label><select id="weather">
+        <option>☀️ Clear</option><option>🌫️ Hazy</option><option>⛅ Partly Cloudy</option>
+        <option>☁️ Overcast</option><option>🌧️ Rain</option><option>💨 Dusty</option>
+      </select></div>
+    </div>
+  </div>
+
+  <!-- GPS CARD -->
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--green-dim)">🛰️</div><div><div class="card-title">GPS Location</div><div class="card-subtitle">WGS84 · device GPS · tap button to acquire</div></div></div>
+    <div class="gps-display" id="gps-display">
+      <div class="gps-row"><div class="gps-lbl">Latitude (°N)</div><div class="gps-val" id="gv-lat">Tap GPS ↓</div></div>
+      <div class="gps-row"><div class="gps-lbl">Longitude (°E)</div><div class="gps-val" id="gv-lon">—</div></div>
+      <div class="gps-row"><div class="gps-lbl">Elevation (m asl)</div><div class="gps-val" id="gv-alt">—</div></div>
+      <div class="gps-row"><div class="gps-lbl">Accuracy (±m)</div><div class="gps-val" id="gv-acc">—</div></div>
+      <div class="acc-bar-wrap"><div class="acc-bar" id="acc-bar" style="width:0%"></div></div>
+    </div>
+    <div class="gps-actions">
+      <button class="gps-btn live" onclick="getSingleGPS()"><div class="gi">📍</div><div class="gl">Get Location</div></button>
+      <button class="gps-btn watch" id="watch-btn" onclick="toggleWatchGPS()"><div class="gi">🔄</div><div class="gl">Live Track</div></button>
+      <button class="gps-btn manual-btn" onclick="toggleManualGPS()"><div class="gi">✏️</div><div class="gl">Manual</div></button>
+    </div>
+    <div class="manual-gps-panel" id="mgps">
+      <div class="form-group"><label>Lat (°N)</label><input type="number" id="m-lat" placeholder="24.6800" step="0.00001" oninput="applyManualGPS()"></div>
+      <div class="form-group"><label>Long (°E)</label><input type="number" id="m-lon" placeholder="82.6500" step="0.00001" oninput="applyManualGPS()"></div>
+      <div class="form-group"><label>Elev (m)</label><input type="number" id="m-alt" placeholder="350" oninput="applyManualGPS()"></div>
+    </div>
+    <div class="gps-status-txt" id="gps-txt">Tap "Get Location" → allow location access when your browser asks.</div>
+  </div>
+
+  <!-- GEOMORPH -->
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--shale)">🏔️</div><div><div class="card-title">Geomorphology & Notes</div></div></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Geomorphic Setting</label><select id="geomorph">
+      <option value="">— Select —</option><option>River cliff / Gorge</option><option>River bank / Flood plain</option>
+      <option>Rocky hillock / Inselberg</option><option>Plateau surface</option><option>Valley floor</option>
+      <option>Nala / Ravine section</option><option>Open cast mine</option><option>Forest / Jungle</option><option>Agricultural plain</option>
+    </select></div>
+    <div class="form-row">
+      <div class="form-group"><label>Photo Nos.</label><input type="text" id="photo-nos" placeholder="P001–P012"></div>
+      <div class="form-group"><label>Sketch Ref.</label><input type="text" id="sketch-ref" placeholder="SK-01"></div>
+    </div>
+    <div class="form-group"><label>General Remarks / Summary</label><textarea id="stn-remarks" placeholder="Describe the outcrop setting, accessibility, exposure quality, key geological significance..."></textarea></div>
+  </div>
+
+  <!-- PHOTO CARD -->
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--amber-dim)">📷</div><div><div class="card-title">Station Photographs</div><div class="card-subtitle">Capture with camera or import from gallery — stored with station record</div></div></div>
+    <div class="photo-section" id="photo-section">
+      <div class="photo-action-row">
+        <button class="photo-btn cam-btn" onclick="openCamera()">
+          <div class="pi">📷</div><div class="pl">Take Photo</div><div class="ps">Opens device camera</div>
+        </button>
+        <button class="photo-btn gal-btn" onclick="openGallery()">
+          <div class="pi">🖼️</div><div class="pl">Add from Gallery</div><div class="ps">Select existing photos</div>
+        </button>
+      </div>
+      <div id="photo-grid" class="photo-grid"></div>
+      <div id="photo-count" class="photo-count" style="display:none">📸 <span id="photo-num">0</span> photo(s) attached</div>
+      <div id="photo-save-row" style="display:none;margin-top:10px;gap:8px;flex-wrap:wrap">
+        <button class="photo-btn" style="flex:1;min-width:120px;border-color:var(--green);padding:10px 8px" onclick="saveAllPhotos()">
+          <div class="pi">⬇️</div><div class="pl" style="color:var(--green)">Save All to Device</div><div class="ps">Downloads each photo as a file</div>
+        </button>
+        <button class="photo-btn" style="flex:1;min-width:120px;border-color:var(--blue);padding:10px 8px" onclick="savePhotosWithData()">
+          <div class="pi">📦</div><div class="pl" style="color:var(--blue)">Save with GPS Data</div><div class="ps">Filename contains coordinates</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-amber btn-full" onclick="saveStation()" style="margin-bottom:10px">💾 SAVE STATION RECORD</button>
+</div>
+
+<!-- ═══ STRUCTURAL ═══ -->
+<div id="panel-structural" class="panel">
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--amber-dim)">🧭</div><div><div class="card-title">Device Sensor Compass</div><div class="card-subtitle">Place phone flat on structure surface — RHR convention</div></div></div>
+    <div class="compass-grid">
+      <div class="compass-cell" id="cc-s"><div class="compass-lbl">Strike (RHR)</div><div class="compass-val" id="cv-s">000°</div></div>
+      <div class="compass-cell" id="cc-d"><div class="compass-lbl">Dip Direction</div><div class="compass-val" id="cv-d">090°</div></div>
+      <div class="compass-cell" id="cc-a"><div class="compass-lbl">Dip Amount</div><div class="compass-val" id="cv-a">00°</div></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-amber btn-sm" id="sensor-btn" onclick="requestSensors()">⚡ Activate Sensors</button>
+      <button class="btn btn-outline btn-sm" id="lock-btn" onclick="lockReading()" disabled>🔒 Lock Reading</button>
+    </div>
+    <div style="font-family:var(--font-mono);font-size:.56rem;color:var(--quartz);margin-top:8px;text-align:center" id="sensor-status">Tap Activate → allow motion access → hold phone FLAT on rock surface</div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--amber-dim)">📐</div><div><div class="card-title">Structure Measurement Log</div><div class="card-subtitle">Manual entry or lock from sensor above</div></div></div>
+    <div class="form-row">
+      <div class="form-group"><label>Meas. No.</label><input type="number" id="meas-no" value="1" min="1"></div>
+      <div class="form-group"><label>Station No.</label><input type="number" id="struct-stn" value="1" min="1"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px"><label>Structure Type</label>
+      <div class="chip-group" id="struct-chips">
+        <div class="chip selected" onclick="selChip(this,'struct-chips')">Bedding</div>
+        <div class="chip" onclick="selChip(this,'struct-chips')">Foliation</div>
+        <div class="chip" onclick="selChip(this,'struct-chips')">Cleavage</div>
+        <div class="chip" onclick="selChip(this,'struct-chips')">Joint</div>
+        <div class="chip" onclick="selChip(this,'struct-chips')">Fault</div>
+        <div class="chip" onclick="selChip(this,'struct-chips')">Vein</div>
+        <div class="chip" onclick="selChip(this,'struct-chips')">Lineation</div>
+        <div class="chip" onclick="selChip(this,'struct-chips')">Unconformity</div>
+        <div class="chip" onclick="selChip(this,'struct-chips')">Fold Axial Plane</div>
+      </div>
+    </div>
+    <div class="section-divider"><span>Planar Data</span></div>
+    <div class="form-row three">
+      <div class="form-group"><label>Strike (RHR °)</label><input type="number" id="strike-i" placeholder="000" min="0" max="359"></div>
+      <div class="form-group"><label>Dip Dir (°)</label><input type="number" id="dipdir-i" placeholder="090" min="0" max="359"></div>
+      <div class="form-group"><label>Dip Amt (°)</label><input type="number" id="dipamt-i" placeholder="00" min="0" max="90"></div>
+    </div>
+    <div class="section-divider"><span>Linear Data</span></div>
+    <div class="form-row three">
+      <div class="form-group"><label>Trend (°)</label><input type="number" id="trend-i" placeholder="000" min="0" max="359"></div>
+      <div class="form-group"><label>Plunge (°)</label><input type="number" id="plunge-i" placeholder="00" min="0" max="90"></div>
+      <div class="form-group"><label>Pitch (°)</label><input type="number" id="pitch-i" placeholder="00" min="0" max="90"></div>
+    </div>
+    <div class="section-divider"><span>Fault / Fold</span></div>
+    <div class="form-row">
+      <div class="form-group"><label>Fault Type</label><select id="fault-type"><option value="">—</option><option>Normal</option><option>Reverse</option><option>Strike-Slip (Dextral)</option><option>Strike-Slip (Sinistral)</option><option>Thrust</option><option>Oblique</option></select></div>
+      <div class="form-group"><label>Facing Dir.</label><select id="facing-dir"><option value="">—</option><option>N</option><option>NE</option><option>E</option><option>SE</option><option>S</option><option>SW</option><option>W</option><option>NW</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Joint Set</label><input type="text" id="jset" placeholder="J1 / J2 / J3"></div>
+      <div class="form-group"><label>Aperture (mm)</label><input type="number" id="aperture" placeholder="mm" step="0.1"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px"><label>Fill Material</label><input type="text" id="fill-mat" placeholder="Calcite, Quartz, Open..."></div>
+    <div class="form-group"><label>Remarks</label><textarea id="struct-rem" placeholder="Geometry, kinematics, relationship to other structures..."></textarea></div>
+  </div>
+  <button class="btn btn-amber btn-full" onclick="saveStructural()">💾 SAVE STRUCTURAL MEASUREMENT</button>
+</div>
+
+<!-- ═══ SPECIMEN ═══ -->
+<div id="panel-specimen" class="panel">
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--purple-dim)">🪨</div><div><div class="card-title">Rock Specimen Log</div><div class="card-subtitle">Hand specimen field description</div></div></div>
+    <div class="form-row">
+      <div class="form-group"><label>Specimen No.</label><input type="text" id="spec-id" placeholder="GF26-001"></div>
+      <div class="form-group"><label>Station Ref.</label><input type="number" id="spec-stn" value="1"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px"><label>Rock Category</label>
+      <div class="chip-group" id="rockcat-chips">
+        <div class="chip selected" onclick="selChip(this,'rockcat-chips')">Sedimentary</div>
+        <div class="chip" onclick="selChip(this,'rockcat-chips')">Igneous</div>
+        <div class="chip" onclick="selChip(this,'rockcat-chips')">Metamorphic</div>
+        <div class="chip" onclick="selChip(this,'rockcat-chips')">Fault Rock</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Rock Name</label><select id="rock-name">
+        <option value="">— Select —</option>
+        <optgroup label="Sedimentary"><option>Sandstone</option><option>Arkose</option><option>Greywacke</option><option>Shale</option><option>Mudstone</option><option>Siltstone</option><option>Limestone</option><option>Chert</option><option>Conglomerate</option><option>Coal</option><option>Porcellanite</option><option>Diamictite</option><option>Varved Shale</option></optgroup>
+        <optgroup label="Igneous"><option>Granite</option><option>Basalt</option><option>Dolerite</option><option>Pegmatite</option></optgroup>
+        <optgroup label="Metamorphic"><option>Quartzite</option><option>Phyllite</option><option>Schist</option><option>Gneiss</option><option>Migmatite</option><option>Marble</option></optgroup>
+        <optgroup label="Special"><option>Stromatolitic Limestone</option><option>Fault Breccia</option><option>Cataclasite</option><option>Mylonite</option></optgroup>
+      </select></div>
+      <div class="form-group"><label>Formation / Unit</label><select id="spec-fm">
+        <option value="">— Select —</option>
+        <optgroup label="Vindhyan"><option>Kaimur Group</option><option>Rewa Group</option><option>Semri Group</option></optgroup>
+        <optgroup label="Gondwana"><option>Talchir Formation</option><option>Karharbari Formation</option><option>Barakar Formation</option><option>Barren Measures</option><option>Raniganj Formation</option></optgroup>
+      </select></div>
+    </div>
+    <div class="section-divider"><span>Hand Specimen Description</span></div>
+    <div class="form-row">
+      <div class="form-group"><label>Colour (Fresh)</label><input type="text" id="col-f" placeholder="Grey, Pink, White..."></div>
+      <div class="form-group"><label>Colour (Weathered)</label><input type="text" id="col-w" placeholder="Buff, Rusty, Brown..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Grain Size</label><select id="grain-sz">
+        <option value="">—</option><option>Very fine (&lt;0.1mm)</option><option>Fine (0.1–0.25mm)</option>
+        <option>Medium (0.25–0.5mm)</option><option>Coarse (0.5–2mm)</option><option>Very coarse (&gt;2mm)</option>
+        <option>Porphyritic</option><option>Massive / Aphanitic</option><option>Foliated</option>
+      </select></div>
+      <div class="form-group"><label>Fabric</label><select id="fabric">
+        <option value="">—</option><option>Massive</option><option>Laminated</option><option>Cross-bedded</option>
+        <option>Ripple laminated</option><option>Graded</option><option>Foliated</option><option>Schistose</option>
+      </select></div>
+    </div>
+    <div class="section-divider"><span>Mineralogy (est. %)</span></div>
+    <div class="form-row three">
+      <div class="form-group"><label>Min 1</label><input type="text" id="min1" placeholder="Qtz 60%"></div>
+      <div class="form-group"><label>Min 2</label><input type="text" id="min2" placeholder="Fsp 20%"></div>
+      <div class="form-group"><label>Min 3</label><input type="text" id="min3" placeholder="Mica 15%"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Accessory Minerals</label><input type="text" id="accessory" placeholder="Zircon, Pyrite..."></div>
+      <div class="form-group"><label>Fossils</label><input type="text" id="fossils" placeholder="Stromatolites..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Sed. Structures</label><input type="text" id="sed-struct" placeholder="XB, Ripples..."></div>
+      <div class="form-group"><label>Lab Analysis?</label><select id="lab-req">
+        <option value="No">No</option><option>Yes — Thin Section</option><option>Yes — XRD</option>
+        <option>Yes — Geochemistry</option><option>Yes — Palynology</option>
+      </select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Bag ID</label><input type="text" id="bag-id" placeholder="BAG-001"></div>
+      <div class="form-group"><label>Photo No.</label><input type="text" id="spec-photo" placeholder="P023"></div>
+    </div>
+    <div class="form-group"><label>Remarks</label><textarea id="spec-rem" placeholder="Veins, alteration, notable textures..."></textarea></div>
+  </div>
+  <button class="btn btn-amber btn-full" onclick="saveSpecimen()">💾 SAVE SPECIMEN RECORD</button>
+</div>
+
+<!-- ═══ STRAT ═══ -->
+<div id="panel-strat" class="panel">
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--blue-dim)">📊</div><div><div class="card-title">Measured Section Log</div><div class="card-subtitle">Layer-by-layer · thickness auto-calculated</div></div></div>
+    <div class="form-row">
+      <div class="form-group"><label>Layer No.</label><input type="number" id="layer-no" value="1" min="1"></div>
+      <div class="form-group"><label>Section Name</label><input type="text" id="section-name" placeholder="Dudhi Nala Sec A"></div>
+    </div>
+    <div class="form-row three">
+      <div class="form-group"><label>Base Ht (m)</label><input type="number" id="base-ht" placeholder="0.00" step="0.01" oninput="calcThick()"></div>
+      <div class="form-group"><label>Top Ht (m)</label><input type="number" id="top-ht" placeholder="1.50" step="0.01" oninput="calcThick()"></div>
+      <div class="form-group"><label>Thickness (m)</label><input type="number" id="thickness" readonly style="color:var(--blue);font-family:var(--font-mono)"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Lithology</label><select id="strat-lith">
+        <option value="">—</option><option>Sandstone (Ss)</option><option>Shale (Sh)</option><option>Siltstone (Slt)</option>
+        <option>Mudstone (Md)</option><option>Limestone (Ls)</option><option>Chert (Ch)</option>
+        <option>Conglomerate (Cg)</option><option>Coal (Cl)</option><option>Quartzite (Qtz)</option>
+        <option>Diamictite</option><option>Varved shale</option>
+      </select></div>
+      <div class="form-group"><label>Grain Size</label><select id="strat-grain">
+        <option value="">—</option><option>Very fine (&lt;0.1mm)</option><option>Fine (0.1–0.25mm)</option>
+        <option>Medium (0.25–0.5mm)</option><option>Coarse (0.5–2mm)</option><option>Very coarse (&gt;2mm)</option>
+      </select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Bedding Thickness</label><select id="bed-thick">
+        <option value="">—</option><option>Laminated (&lt;1cm)</option><option>Very thin (1–3cm)</option>
+        <option>Thin (3–10cm)</option><option>Medium (10–30cm)</option><option>Thick (30–100cm)</option>
+        <option>Very thick (&gt;1m)</option><option>Massive</option>
+      </select></div>
+      <div class="form-group"><label>Contact (base)</label><select id="contact-type">
+        <option value="">—</option><option>Sharp / Planar</option><option>Sharp / Erosional</option>
+        <option>Gradational</option><option>Unconformable</option><option>Fault contact</option>
+      </select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Sed. Structures</label><input type="text" id="strat-sed" placeholder="XB, Ripples, DF..."></div>
+      <div class="form-group"><label>Fossil Content</label><input type="text" id="strat-fossil" placeholder="Stromatolites..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Formation / Member</label><input type="text" id="strat-fm" placeholder="Barakar Fm..."></div>
+      <div class="form-group"><label>Dep. Environment</label><select id="dep-env">
+        <option value="">—</option><option>Fluvial — Braided</option><option>Fluvial — Meandering</option>
+        <option>Deltaic</option><option>Lacustrine</option><option>Peat Swamp / Mire</option>
+        <option>Shallow Marine</option><option>Tidal Flat</option><option>Aeolian</option>
+        <option>Glacial</option><option>Glaciomarine</option>
+      </select></div>
+    </div>
+    <div class="form-group"><label>Remarks</label><textarea id="strat-rem" rows="2" placeholder="Key observations for this layer..."></textarea></div>
+  </div>
+  <button class="btn btn-blue btn-full" onclick="saveStrat()">💾 SAVE LAYER</button>
+  <div class="section-divider" style="margin-top:18px"><span>Logged Layers</span></div>
+  <div id="strat-entries"></div>
+</div>
+
+<!-- ═══ MINE ═══ -->
+<div id="panel-mine" class="panel">
+  <div class="mine-alert">⚠️&nbsp;<div>Always wear PPE in mine areas. Record only in approved zones. Safety first — no data is worth an injury.</div></div>
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:#2a1500">⛏️</div><div><div class="card-title">Mine & Coal Seam Observation</div><div class="card-subtitle">Singrauli Coalfields / SECL</div></div></div>
+    <div class="form-row">
+      <div class="form-group"><label>Obs. No.</label><input type="number" id="mine-obs-no" value="1"></div>
+      <div class="form-group"><label>Mine / Pit Name</label><input type="text" id="mine-name" placeholder="Jhingurda OCP..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Seam Name / No.</label><input type="text" id="seam-name" placeholder="Seam 1, Barakar Main..."></div>
+      <div class="form-group"><label>Seam Thickness (m)</label><input type="number" id="seam-thick" placeholder="m" step="0.1"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Depth to Seam (m)</label><input type="number" id="seam-depth" placeholder="m"></div>
+      <div class="form-group"><label>Coal Rank / Type</label><select id="coal-rank">
+        <option value="">—</option><option>Lignite</option><option>Sub-bituminous</option>
+        <option>Bituminous — Grade A</option><option>Bituminous — Grade B</option>
+        <option>Bituminous — Grade C</option><option>Semi-anthracite</option>
+      </select></div>
+    </div>
+    <div class="section-divider"><span>Stratigraphy Context</span></div>
+    <div class="form-row">
+      <div class="form-group"><label>Overburden Lithology</label><input type="text" id="overburden" placeholder="Sandstone, Shale..."></div>
+      <div class="form-group"><label>Roof Rock</label><input type="text" id="roof-rock" placeholder="Shale, Siltstone..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Floor Rock</label><input type="text" id="floor-rock" placeholder="Seat Earth..."></div>
+      <div class="form-group"><label>Water Inflow?</label><select id="water-inflow">
+        <option>No</option><option>Minor seepage</option><option>Moderate inflow</option><option>Heavy inflow</option>
+      </select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Mining Method</label><select id="mining-method">
+        <option value="">—</option><option>Open Cast (OCP)</option><option>Bord & Pillar</option><option>Longwall</option><option>Hydraulic</option>
+      </select></div>
+      <div class="form-group"><label>Structural Features</label><input type="text" id="mine-struct" placeholder="Faults, dykes, rolls..."></div>
+    </div>
+    <div class="form-group"><label>Remarks / Safety Observations</label><textarea id="mine-rem" placeholder="Note hazards, features, NTPC plant observations..."></textarea></div>
+  </div>
+  <button class="btn btn-amber btn-full" onclick="saveMine()">💾 SAVE MINE OBSERVATION</button>
+</div>
+
+<!-- ═══ DIARY ═══ -->
+<div id="panel-diary" class="panel">
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:#1a0a00">📓</div><div><div class="card-title">Daily Field Diary</div><div class="card-subtitle">Select day then fill entries</div></div></div>
+    <div class="diary-day-tab" id="diary-tabs"></div>
+    <div style="margin-top:12px">
+      <div class="form-group" style="margin-bottom:10px"><label>Stations Visited Today</label><input type="text" id="d-stations" placeholder="Stn 1, 2, 3 — Markundi Ghat"></div>
+      <div class="form-group" style="margin-bottom:10px"><label>Key Geological Observations</label><textarea id="d-geo" rows="4" placeholder="Major features, outcrops, interpretations..."></textarea></div>
+      <div class="form-group" style="margin-bottom:10px"><label>Structural Data Summary</label><textarea id="d-struct" rows="2" placeholder="No. of measurements, dominant strike/dip..."></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Samples Collected</label><input type="number" id="d-samples" placeholder="0"></div>
+        <div class="form-group"><label>Photos Taken</label><input type="number" id="d-photos" placeholder="0"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px"><label>Difficulties / Problems</label><textarea id="d-problems" rows="2" placeholder="Access, equipment, weather..."></textarea></div>
+      <div class="form-group"><label>Tomorrow's Plan</label><textarea id="d-plan" rows="2" placeholder="Next day objectives..."></textarea></div>
+    </div>
+  </div>
+  <button class="btn btn-amber btn-full" onclick="saveDiary()">💾 SAVE DIARY ENTRY</button>
+</div>
+
+<!-- ═══ RECORDS ═══ -->
+<div id="panel-records" class="panel">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value" style="color:var(--green)" id="st-stn">0</div><div class="stat-label">Stations</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--amber)" id="st-str">0</div><div class="stat-label">Structures</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--purple)" id="st-spc">0</div><div class="stat-label">Specimens</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--blue)" id="st-lay">0</div><div class="stat-label">Strat Layers</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-icon" style="background:var(--green-dim)">📥</div><div><div class="card-title">Export Data</div><div class="card-subtitle">Download records as CSV files</div></div></div>
+    <div class="btn-row" style="margin-bottom:8px"><button class="btn btn-green btn-sm" onclick="exportCSV('stations')">📍 Stations</button><button class="btn btn-amber btn-sm" onclick="exportCSV('structural')">🧭 Structural</button></div>
+    <div class="btn-row" style="margin-bottom:8px"><button class="btn btn-purple btn-sm" onclick="exportCSV('specimens')">🪨 Specimens</button><button class="btn btn-blue btn-sm" onclick="exportCSV('strat')">📊 Strat Log</button></div>
+    <div class="btn-row" style="margin-bottom:8px"><button class="btn btn-outline btn-sm" onclick="exportCSV('mine')">⛏️ Mine Data</button><button class="btn btn-outline btn-sm" onclick="exportAll()">📦 Export ALL</button></div>
+    <div style="height:1px;background:var(--shale);margin:10px 0"></div>
+    <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--quartz);margin-bottom:8px">Current Session Photos</div>
+    <div class="btn-row">
+      <button class="btn btn-green btn-sm" onclick="saveAllPhotos()">⬇️ Save All Photos</button>
+      <button class="btn btn-blue btn-sm" onclick="savePhotosWithData()">📍 Save with GPS Names</button>
+    </div>
+    <div style="font-family:var(--font-mono);font-size:.55rem;color:var(--quartz);margin-top:6px;text-align:center" id="session-photo-count">0 photos in current session</div>
+  </div>
+  <div class="section-divider"><span>Recent Station Records</span></div>
+  <div id="records-list"></div>
+  <div class="btn-row" style="margin-top:16px"><button class="btn btn-red btn-sm" onclick="clearAll()">🗑️ Clear All Data</button></div>
+</div>
+
+<!-- ═══ ITINERARY ═══ -->
+<div id="panel-itinerary" class="panel">
+  <div class="card" style="background:linear-gradient(135deg,var(--slate),var(--rock));border-color:var(--amber)">
+    <div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:var(--amber);margin-bottom:6px;font-weight:700">FIELD EXCURSION 2026</div>
+    <div style="font-size:1.1rem;font-weight:800;margin-bottom:4px">Vindhyan Basin → Gondwana Coalfields</div>
+    <div style="font-family:var(--font-mono);font-size:.65rem;color:var(--quartz)">20 Feb – 01 Mar 2026 &nbsp;|&nbsp; 10 Days &nbsp;|&nbsp; Bus Travel</div>
+  </div>
+  <div class="itin-card vindhyan"><div class="itin-day">1</div><div class="itin-content"><div class="itin-location">Departure + Transit to Markundi Area</div><div class="itin-theme">Orientation briefing — Vindhyan Basin overview. Brief stop at Markundi viewpoint. Son River gorge context.</div><div class="itin-date">20-Feb-2026 · ~200 km travel</div></div><div class="itin-badge v">VIND</div></div>
+  <div class="itin-card vindhyan"><div class="itin-day">2</div><div class="itin-content"><div class="itin-location">Lakhaniyadari</div><div class="itin-theme">Vindhyan Sandstone & Quartzite outcrops. Ripple marks, cross-bedding, joint patterns. Lower Vindhyan stratigraphy. Brunton compass practice.</div><div class="itin-date">21-Feb-2026 · ~30 km from base</div></div><div class="itin-badge v">VIND</div></div>
+  <div class="itin-card vindhyan"><div class="itin-day">3</div><div class="itin-content"><div class="itin-location">Markundi Ghat — Son River Cliff</div><div class="itin-theme">River cliff section. Structural mapping. Cross-bedding, joint sets, fracture analysis. Fluvial sedimentology. Measured section exercise.</div><div class="itin-date">22-Feb-2026 · ~40 km</div></div><div class="itin-badge v">VIND</div></div>
+  <div class="itin-card vindhyan"><div class="itin-day">4</div><div class="itin-content"><div class="itin-location">Salkhham Fossil Park</div><div class="itin-theme">Stromatolites, algal mats, chert. Precambrian palaeontology (~900 Ma). Photography and sketch exercises. NO hammering on fossiliferous beds.</div><div class="itin-date">23-Feb-2026 · ~30 km</div></div><div class="itin-badge v">VIND</div></div>
+  <div class="itin-card gondwana"><div class="itin-day">5</div><div class="itin-content"><div class="itin-location">Chopan → Singrauli Transit</div><div class="itin-theme">Gondwana basin margin observation en route. Fault zone identification. Transition from Vindhyan to Gondwana stratigraphy.</div><div class="itin-date">24-Feb-2026 · ~90 km</div></div><div class="itin-badge g">GOND</div></div>
+  <div class="itin-card gondwana"><div class="itin-day">6</div><div class="itin-content"><div class="itin-location">Singrauli Coalfields — Open Cast Mine Visit 1</div><div class="itin-theme">Barakar Formation stratigraphy. Coal seam identification & measurement. OCP method. Overburden lithology. PPE mandatory.</div><div class="itin-date">25-Feb-2026 · Mine site</div></div><div class="itin-badge g">MINE</div></div>
+  <div class="itin-card gondwana"><div class="itin-day">7</div><div class="itin-content"><div class="itin-location">Singrauli — Mine Visit 2 + Deeper Studies</div><div class="itin-theme">Roof & floor rock identification. Sandstone–shale cyclicity. Structural features (faults, rolls). Subsidence patterns.</div><div class="itin-date">26-Feb-2026 · Mine site</div></div><div class="itin-badge g">MINE</div></div>
+  <div class="itin-card gondwana"><div class="itin-day">8</div><div class="itin-content"><div class="itin-location">Singrauli — NTPC Industrial Visit</div><div class="itin-theme">NTPC power plant geology. Ash pond environmental geology. Coal quality assessment. Applied economic geology perspective.</div><div class="itin-date">27-Feb-2026 · Industrial area</div></div><div class="itin-badge g">IND</div></div>
+  <div class="itin-card jharkhand"><div class="itin-day">9</div><div class="itin-content"><div class="itin-location">Transit: Singrauli → Kuju, Ramgarh (Jharkhand)</div><div class="itin-theme">Long bus journey ~350 km. Damodar Valley Gondwana basin overview. Bokaro coalfield belt. Arrive Kuju GSI sub-unit.</div><div class="itin-date">28-Feb-2026 · ~350 km travel</div></div><div class="itin-badge j">JH</div></div>
+  <div class="itin-card jharkhand"><div class="itin-day">10</div><div class="itin-content"><div class="itin-location">Dudhi Nala Section, Kuju — GSI Sub-unit</div><div class="itin-theme">Standard GSI measured section. Karharbari / Barakar Formation. Detailed stratigraphic column. Fault identification. Comparison with Singrauli. Debrief.</div><div class="itin-date">01-Mar-2026 · Kuju, Ramgarh Dist.</div></div><div class="itin-badge j">GSI</div></div>
+</div>
+
+<!-- ═══ REFERENCE ═══ -->
+<div id="panel-reference" class="panel">
+  <div class="card"><div class="card-header"><div class="card-icon" style="background:var(--green-dim)">📋</div><div><div class="card-title">Vindhyan Supergroup Stratigraphy</div><div class="card-subtitle">Lakhaniyadari · Markundi Ghat · Salkhham</div></div></div>
+  <table class="ref-table"><thead><tr><th>Group</th><th>Age</th><th>Key Lithology</th><th>Dep. Setting</th></tr></thead><tbody>
+    <tr><td style="color:var(--green)">Rewa Group</td><td>~600 Ma</td><td>Ss, Sh</td><td>Fluvial, Deltaic</td></tr>
+    <tr><td style="color:var(--green)">Kaimur Group</td><td>~700 Ma</td><td>Ss, Porcellanite</td><td>Aeolian–Fluvial</td></tr>
+    <tr><td style="color:var(--amber)">Semri Group</td><td>~900 Ma</td><td>Sh, Ls, Chert</td><td>Shallow Marine, Stromatolitic</td></tr>
+    <tr><td style="color:var(--quartz)">Basement</td><td>&gt;1600 Ma</td><td>Granites, Gneiss</td><td>Crystalline Basement</td></tr>
+  </tbody></table></div>
+  <div class="card"><div class="card-header"><div class="card-icon" style="background:var(--amber-dim)">⛏️</div><div><div class="card-title">Gondwana Supergroup Stratigraphy</div><div class="card-subtitle">Singrauli · Kuju · Dudhi Nala Section</div></div></div>
+  <table class="ref-table"><thead><tr><th>Formation</th><th>Age</th><th>Key Lithology</th><th>Dep. Setting</th></tr></thead><tbody>
+    <tr><td style="color:var(--quartz)">Jabalpur / Lameta</td><td>Cretaceous</td><td>Ls, Ss</td><td>Fluvial, Lacustrine</td></tr>
+    <tr><td style="color:var(--blue)">Raniganj Fm.</td><td>Permian</td><td>Ss, Sh, Coal</td><td>Deltaic Floodplain</td></tr>
+    <tr><td style="color:var(--quartz)">Barren Measures</td><td>Permian</td><td>Sh, Slt</td><td>Poorly drained floodplain</td></tr>
+    <tr><td style="color:var(--amber)">Barakar Fm.</td><td>Permian</td><td>Ss, Coal Seams</td><td>Braided Fluvial, Peat Swamp</td></tr>
+    <tr><td style="color:var(--amber)">Karharbari Fm.</td><td>~290 Ma</td><td>Ss, Sh, Coal</td><td>Fluvial, Glaciogenic base</td></tr>
+    <tr><td style="color:var(--teal)">Talchir Fm.</td><td>Early Permian</td><td>Diamictite, Varved Sh</td><td>Glacial outwash</td></tr>
+  </tbody></table></div>
+  <div class="card"><div class="card-header"><div class="card-icon" style="background:var(--shale)">🔤</div><div><div class="card-title">Field Abbreviation Codes</div></div></div>
+  <div class="abbrev-grid">
+    <div class="abbrev-item"><span class="abbrev-code">Ss</span><span class="abbrev-meaning">Sandstone</span></div><div class="abbrev-item"><span class="abbrev-code">Sh</span><span class="abbrev-meaning">Shale</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Ls</span><span class="abbrev-meaning">Limestone</span></div><div class="abbrev-item"><span class="abbrev-code">Ch</span><span class="abbrev-meaning">Chert</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Cg</span><span class="abbrev-meaning">Conglomerate</span></div><div class="abbrev-item"><span class="abbrev-code">Slt</span><span class="abbrev-meaning">Siltstone</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Md</span><span class="abbrev-meaning">Mudstone</span></div><div class="abbrev-item"><span class="abbrev-code">Cl</span><span class="abbrev-meaning">Coal</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Qtz</span><span class="abbrev-meaning">Quartzite</span></div><div class="abbrev-item"><span class="abbrev-code">Gn</span><span class="abbrev-meaning">Gneiss</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Str</span><span class="abbrev-meaning">Stromatolite</span></div><div class="abbrev-item"><span class="abbrev-code">Rp</span><span class="abbrev-meaning">Ripple marks</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">XB</span><span class="abbrev-meaning">Cross-bedding</span></div><div class="abbrev-item"><span class="abbrev-code">DF</span><span class="abbrev-meaning">Desiccation cracks</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Flt</span><span class="abbrev-meaning">Fault</span></div><div class="abbrev-item"><span class="abbrev-code">Jt</span><span class="abbrev-meaning">Joint</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Vn</span><span class="abbrev-meaning">Vein</span></div><div class="abbrev-item"><span class="abbrev-code">Un</span><span class="abbrev-meaning">Unconformity</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Bd</span><span class="abbrev-meaning">Bedding</span></div><div class="abbrev-item"><span class="abbrev-code">Fol</span><span class="abbrev-meaning">Foliation</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Ant</span><span class="abbrev-meaning">Anticline</span></div><div class="abbrev-item"><span class="abbrev-code">Syn</span><span class="abbrev-meaning">Syncline</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">N</span><span class="abbrev-meaning">Normal Fault</span></div><div class="abbrev-item"><span class="abbrev-code">R</span><span class="abbrev-meaning">Reverse Fault</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">T</span><span class="abbrev-meaning">Thrust Fault</span></div><div class="abbrev-item"><span class="abbrev-code">SS</span><span class="abbrev-meaning">Strike-slip</span></div>
+    <div class="abbrev-item"><span class="abbrev-code">Hm</span><span class="abbrev-meaning">Homocline</span></div><div class="abbrev-item"><span class="abbrev-code">Mon</span><span class="abbrev-meaning">Monocline</span></div>
+  </div></div>
+  <div class="card"><div class="card-header"><div class="card-icon" style="background:var(--shale)">📏</div><div><div class="card-title">Grain Size Scale (Wentworth)</div></div></div>
+  <table class="ref-table"><thead><tr><th>Class</th><th>Size</th><th>Rock Type</th></tr></thead><tbody>
+    <tr><td>Gravel / Boulder</td><td>&gt;2mm</td><td>Conglomerate</td></tr><tr><td>Very coarse sand</td><td>1–2mm</td><td>Very coarse Ss</td></tr>
+    <tr><td>Coarse sand</td><td>0.5–1mm</td><td>Coarse Ss</td></tr><tr><td>Medium sand</td><td>0.25–0.5mm</td><td>Sandstone</td></tr>
+    <tr><td>Fine sand</td><td>0.1–0.25mm</td><td>Fine Ss</td></tr><tr><td>Silt</td><td>0.004–0.063mm</td><td>Siltstone</td></tr>
+    <tr><td>Clay</td><td>&lt;0.004mm</td><td>Mudstone / Shale</td></tr>
+  </tbody></table></div>
+  <div class="card"><div class="card-header"><div class="card-icon" style="background:var(--shale)">💎</div><div><div class="card-title">Mohs Hardness Quick Ref</div></div></div>
+  <table class="ref-table"><thead><tr><th>H</th><th>Mineral</th><th>Field Test</th></tr></thead><tbody>
+    <tr><td style="color:var(--amber)">1–2</td><td>Talc / Gypsum</td><td>Scratched by fingernail</td></tr>
+    <tr><td style="color:var(--amber)">2.5</td><td>Fingernail</td><td>—</td></tr>
+    <tr><td style="color:var(--amber)">3</td><td>Calcite</td><td>Scratched by copper coin</td></tr>
+    <tr><td style="color:var(--amber)">5.5</td><td>Penknife blade</td><td>—</td></tr>
+    <tr><td style="color:var(--amber)">6</td><td>Feldspar</td><td>Scratches glass</td></tr>
+    <tr><td style="color:var(--amber)">7</td><td>Quartz</td><td>Scratches glass easily</td></tr>
+  </tbody></table></div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" onclick="closeLB()">✕</button>
+  <img id="lb-img" src="" alt="Field photo" style="cursor:default" onclick="event.stopPropagation()">
+  <div class="lb-info" id="lb-info"></div>
+  <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center">
+    <button class="lb-action-btn lb-save-btn" onclick="saveSinglePhoto()">⬇️ Save to Device</button>
+    <button class="lb-action-btn lb-prev-btn" onclick="lbPrev()">◀ Prev</button>
+    <button class="lb-action-btn lb-next-btn" onclick="lbNext()">Next ▶</button>
+    <button class="lb-action-btn lb-close-btn" onclick="closeLB()">✕ Close</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ DATA STORE ══
+const KEYS={stations:'gf26_stn',structural:'gf26_str',specimens:'gf26_spc',strat:'gf26_strat',mine:'gf26_mine',diary:'gf26_diary'};
+let db={};
+Object.keys(KEYS).forEach(k=>{try{db[k]=JSON.parse(localStorage.getItem(KEYS[k]))||[];}catch(e){db[k]=[];}});
+function saveDB(k){try{localStorage.setItem(KEYS[k],JSON.stringify(db[k]));}catch(e){toast('⚠️ Storage full! Export now.','warn');}}
+
+// ══ PHOTOS (session only) ══
+let photos=[];
+
+// ══ TABS ══
+function switchTab(name,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(name==='records')renderRecords();
+  if(name==='diary')renderDiaryTabs();
+  if(name==='strat')renderStratEntries();
+}
+
+// ══ CLOCK ══
+function tick(){
+  const n=new Date();
+  document.getElementById('hdr-time').textContent=n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const t=Object.values(db).reduce((s,a)=>s+a.length,0);
+  document.getElementById('hdr-rec').textContent=t+' REC';
+  document.getElementById('stn-rec-count').textContent=t;
+}
+setInterval(tick,1000);tick();
+
+// ══ PERMISSION STATUS ══
+function setPerm(id,state){const el=document.getElementById('pd-'+id);if(el)el.className='perm-dot '+state;}
+
+// ══ GPS ══
+let gps={lat:null,lon:null,alt:null,acc:null};
+let watchId=null;
+
+function requestGPS(){getSingleGPS();}
+
+function getSingleGPS(){
+  if(!navigator.geolocation){toast('GPS not available','error');setPerm('gps','denied');return;}
+  setGpsLoading();
+  navigator.geolocation.getCurrentPosition(onGPSOK,onGPSErr,{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
+
+function toggleWatchGPS(){
+  if(watchId!==null){
+    navigator.geolocation.clearWatch(watchId);watchId=null;
+    document.getElementById('watch-btn').classList.remove('on');
+    document.getElementById('gps-display').classList.remove('tracking');
+    document.getElementById('gps-txt').textContent='Live tracking stopped.';
+    toast('Live GPS tracking stopped');
+  } else {
+    if(!navigator.geolocation){toast('GPS not available','error');return;}
+    setGpsLoading();
+    document.getElementById('watch-btn').classList.add('on');
+    document.getElementById('gps-display').classList.add('tracking');
+    watchId=navigator.geolocation.watchPosition(onGPSOK,onGPSErr,{enableHighAccuracy:true,timeout:20000,maximumAge:2000});
+    document.getElementById('gps-txt').textContent='🔄 Live tracking active — coordinates updating automatically';
+  }
+}
+
+function setGpsLoading(){
+  ['gv-lat','gv-lon','gv-alt','gv-acc'].forEach(id=>{const e=document.getElementById(id);e.className='gps-val loading';e.textContent='...';});
+  setPerm('gps','pending');
+  document.getElementById('gps-txt').textContent='Requesting location... allow access when browser prompts.';
+}
+
+function onGPSOK(pos){
+  gps.lat=pos.coords.latitude;gps.lon=pos.coords.longitude;gps.alt=pos.coords.altitude;gps.acc=pos.coords.accuracy;
+  document.getElementById('gv-lat').textContent=pos.coords.latitude.toFixed(6);
+  document.getElementById('gv-lon').textContent=pos.coords.longitude.toFixed(6);
+  document.getElementById('gv-alt').textContent=pos.coords.altitude?pos.coords.altitude.toFixed(1)+' m':'N/A';
+  document.getElementById('gv-acc').textContent='± '+pos.coords.accuracy.toFixed(1)+' m';
+  ['gv-lat','gv-lon','gv-alt','gv-acc'].forEach(id=>document.getElementById(id).className='gps-val');
+  const pct=Math.max(0,Math.min(100,100-(pos.coords.accuracy/100*100)));
+  const bar=document.getElementById('acc-bar');
+  bar.style.width=pct+'%';
+  bar.style.background=pos.coords.accuracy<10?'var(--green)':pos.coords.accuracy<30?'var(--amber)':'var(--red)';
+  setPerm('gps','active');
+  document.getElementById('perm-banner').classList.add('hidden');
+  document.getElementById('gps-txt').textContent='✓ Location acquired · '+new Date().toLocaleTimeString('en-IN');
+  if(watchId===null)toast('GPS acquired ✓');
+}
+
+function onGPSErr(err){
+  ['gv-lat','gv-lon','gv-alt','gv-acc'].forEach(id=>{const e=document.getElementById(id);e.className='gps-val err';e.textContent='Error';});
+  setPerm('gps','denied');
+  const msgs={1:'Location denied — enable in browser/device settings',2:'GPS unavailable — try outdoors',3:'GPS timed out — try again'};
+  const m=msgs[err.code]||'GPS error';
+  document.getElementById('gps-txt').textContent=m;
+  toast(m,'error');
+}
+
+function toggleManualGPS(){document.getElementById('mgps').classList.toggle('open');}
+
+function applyManualGPS(){
+  const lat=parseFloat(document.getElementById('m-lat').value);
+  const lon=parseFloat(document.getElementById('m-lon').value);
+  const alt=parseFloat(document.getElementById('m-alt').value);
+  if(!isNaN(lat)&&!isNaN(lon)){
+    gps.lat=lat;gps.lon=lon;gps.alt=isNaN(alt)?null:alt;gps.acc=null;
+    document.getElementById('gv-lat').textContent=lat.toFixed(6);
+    document.getElementById('gv-lon').textContent=lon.toFixed(6);
+    document.getElementById('gv-alt').textContent=isNaN(alt)?'Manual':alt+' m';
+    document.getElementById('gv-acc').textContent='Manual entry';
+    ['gv-lat','gv-lon','gv-alt','gv-acc'].forEach(id=>document.getElementById(id).className='gps-val');
+    setPerm('gps','active');
+    document.getElementById('gps-txt').textContent='✓ Manual coordinates applied';
+  }
+}
+
+// ══ SENSORS ══
+let sensorsOn=false,locked=null;
+
+function requestSensors(){
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission()
+      .then(s=>{if(s==='granted'){startSensors();setPerm('sensor','active');}else{toast('Sensor permission denied','error');setPerm('sensor','denied');}})
+      .catch(()=>{startSensors();setPerm('sensor','active');});
+  } else if(typeof DeviceOrientationEvent!=='undefined'){
+    startSensors();setPerm('sensor','active');
+  } else {
+    toast('No orientation sensor on this device','error');setPerm('sensor','denied');
+    document.getElementById('sensor-status').textContent='✗ No orientation sensor detected';
+  }
+}
+
+function startSensors(){
+  sensorsOn=true;
+  const btn=document.getElementById('sensor-btn');
+  btn.textContent='✓ Sensors Active';btn.style.background='var(--green)';btn.style.color='var(--rock)';
+  document.getElementById('lock-btn').disabled=false;
+  document.getElementById('sensor-status').textContent='● LIVE — hold phone FLAT on rock surface (face up). Lock reading when stable.';
+  document.getElementById('sensor-status').style.color='var(--green)';
+  ['cc-s','cc-d','cc-a'].forEach(id=>document.getElementById(id).classList.add('live'));
+  ['cv-s','cv-d','cv-a'].forEach(id=>document.getElementById(id).classList.add('live'));
+  window.addEventListener('deviceorientationabsolute',handleOri,true);
+  window.addEventListener('deviceorientation',handleOri,true);
+}
+
+function handleOri(e){
+  if(locked)return;
+  let alpha=e.webkitCompassHeading!==undefined?e.webkitCompassHeading:(360-(e.alpha||0))%360;
+  let beta=e.beta||0;
+  let strike=Math.round(alpha)%360;
+  let dipDir=(strike+90)%360;
+  let dip=Math.min(90,Math.round(Math.abs(beta)));
+  document.getElementById('cv-s').textContent=String(strike).padStart(3,'0')+'°';
+  document.getElementById('cv-d').textContent=String(dipDir).padStart(3,'0')+'°';
+  document.getElementById('cv-a').textContent=String(dip).padStart(2,'0')+'°';
+}
+
+function lockReading(){
+  if(locked){
+    locked=null;
+    document.getElementById('lock-btn').textContent='🔒 Lock Reading';
+    document.getElementById('sensor-status').textContent='● LIVE — hold phone flat on rock surface';
+    document.getElementById('sensor-status').style.color='var(--green)';
+  } else {
+    locked={s:document.getElementById('cv-s').textContent,d:document.getElementById('cv-d').textContent,a:document.getElementById('cv-a').textContent};
+    document.getElementById('strike-i').value=parseInt(locked.s);
+    document.getElementById('dipdir-i').value=parseInt(locked.d);
+    document.getElementById('dipamt-i').value=parseInt(locked.a);
+    document.getElementById('lock-btn').textContent='🔓 Unlock';
+    document.getElementById('sensor-status').textContent='🔒 LOCKED — values copied to measurement form below';
+    document.getElementById('sensor-status').style.color='var(--amber)';
+    toast('Reading locked & copied to form ✓');
+  }
+}
+
+// ══ CAMERA / GALLERY ══
+function requestCamera(){openCamera();}
+function openCamera(){document.getElementById('camera-input').click();setPerm('cam','active');}
+function openGallery(){document.getElementById('gallery-input').click();setPerm('gallery','active');}
+
+document.getElementById('camera-input').addEventListener('change',function(e){handleFiles(e.target.files,'Cam');this.value='';});
+document.getElementById('gallery-input').addEventListener('change',function(e){handleFiles(e.target.files,'Gal');this.value='';});
+
+function handleFiles(files,src){
+  if(!files||!files.length)return;
+  const stn=document.getElementById('stn-no').value;
+  let done=0;
+  Array.from(files).forEach((f,idx)=>{
+    if(!f.type.startsWith('image/'))return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      photos.push({dataUrl:ev.target.result,name:'STN'+stn+'-'+src+'-'+idx,src,ts:new Date().toISOString(),stn});
+      done++;
+      if(done===files.length){renderPhotoGrid();toast(done+' photo(s) added from '+src+' ✓');}
+    };
+    r.readAsDataURL(f);
+  });
+}
+
+function renderPhotoGrid(){
+  const grid=document.getElementById('photo-grid');
+  const cnt=document.getElementById('photo-count');
+  const ps=document.getElementById('photo-section');
+  const saveRow=document.getElementById('photo-save-row');
+  if(!photos.length){grid.innerHTML='';cnt.style.display='none';saveRow.style.display='none';ps.classList.remove('has-photos');return;}
+  cnt.style.display='inline-flex';
+  saveRow.style.display='flex';
+  document.getElementById('photo-num').textContent=photos.length;
+  ps.classList.add('has-photos');
+  grid.innerHTML=photos.map((p,i)=>`
+    <div class="photo-wrap">
+      <img class="photo-thumb" src="${p.dataUrl}" alt="${p.name}" onclick="openLB(${i})">
+      <button class="photo-del" onclick="delPhoto(${i});event.stopPropagation()">✕</button>
+      <button class="photo-save-thumb" onclick="saveOnePhoto(${i});event.stopPropagation()" title="Save to device">⬇</button>
+      <div class="photo-lbl">${p.name}</div>
+    </div>`).join('');
+}
+
+function delPhoto(i){photos.splice(i,1);renderPhotoGrid();toast('Photo removed');}
+
+let lbIndex=0;
+
+function openLB(i){
+  lbIndex=i;
+  showLBPhoto();
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function showLBPhoto(){
+  const p=photos[lbIndex];
+  document.getElementById('lb-img').src=p.dataUrl;
+  document.getElementById('lb-info').textContent=
+    p.name+' · '+p.src+' · '+new Date(p.ts).toLocaleString('en-IN')+
+    (gps.lat?' · GPS: '+gps.lat.toFixed(5)+', '+gps.lon.toFixed(5):'');
+}
+
+function lbPrev(){if(lbIndex>0){lbIndex--;showLBPhoto();}}
+function lbNext(){if(lbIndex<photos.length-1){lbIndex++;showLBPhoto();}}
+function closeLB(){document.getElementById('lightbox').classList.remove('open');}
+
+// ── SAVE SINGLE PHOTO FROM LIGHTBOX ──
+function saveSinglePhoto(){
+  const p=photos[lbIndex];
+  downloadPhoto(p);
+  toast('Photo saved to device ✓');
+}
+
+// ── SAVE ONE PHOTO FROM THUMBNAIL ──
+function saveOnePhoto(i){
+  downloadPhoto(photos[i]);
+  toast('Photo saved to device ✓');
+}
+
+// ── SAVE ALL PHOTOS (one by one with delay) ──
+function saveAllPhotos(){
+  if(!photos.length){toast('No photos to save','warn');return;}
+  photos.forEach((p,i)=>setTimeout(()=>downloadPhoto(p),i*400));
+  toast('Saving '+photos.length+' photo(s) to device...');
+}
+
+// ── SAVE ALL WITH GPS COORDINATES IN FILENAME ──
+function savePhotosWithData(){
+  if(!photos.length){toast('No photos to save','warn');return;}
+  const lat=gps.lat?gps.lat.toFixed(4):'noGPS';
+  const lon=gps.lon?gps.lon.toFixed(4):'noGPS';
+  const stn=document.getElementById('stn-no').value;
+  photos.forEach((p,i)=>{
+    setTimeout(()=>{
+      const geoName='GeoField_STN'+stn+'_'+lat+'N_'+lon+'E_'+i+'_'+new Date(p.ts).toISOString().slice(0,10);
+      downloadPhoto(p,geoName);
+    },i*400);
+  });
+  toast('Saving '+photos.length+' photo(s) with GPS data...');
+}
+
+// ── CORE DOWNLOAD FUNCTION ──
+function downloadPhoto(p,customName){
+  // Detect image type from dataUrl
+  const mime=p.dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
+  const ext=mime.split('/')[1].replace('jpeg','jpg');
+  const filename=(customName||p.name)+'.'+ext;
+  const a=document.createElement('a');
+  a.href=p.dataUrl;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ══ HELPERS ══
+function selChip(el,gid){document.querySelectorAll('#'+gid+' .chip').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');}
+function getChip(gid){const s=document.querySelector('#'+gid+' .chip.selected');return s?s.textContent.trim():'';}
+function calcThick(){const b=parseFloat(g('base-ht').value),t=parseFloat(g('top-ht').value);if(!isNaN(b)&&!isNaN(t))g('thickness').value=(t-b).toFixed(2);}
+function g(id){return document.getElementById(id);}
+function v(id){const el=g(id);return el?el.value.trim():'';}
+
+// ══ SAVE FUNCTIONS ══
+function saveStation(){
+  const lat=gps.lat||g('m-lat').value;
+  const lon=gps.lon||g('m-lon').value;
+  if(!lat||!lon){toast('⚠️ Please get GPS or enter coordinates','warn');return;}
+  db.stations.push({
+    id:Date.now(),stn:v('stn-no'),day:v('day-no'),location:v('location-name'),area:v('area-select'),weather:v('weather'),
+    lat:typeof lat==='number'?lat.toFixed(6):lat,lon:typeof lon==='number'?lon.toFixed(6):lon,
+    alt:gps.alt?gps.alt.toFixed(1):'',acc:gps.acc?gps.acc.toFixed(1):'',
+    geomorph:v('geomorph'),photos:v('photo-nos'),sketch:v('sketch-ref'),
+    photoCount:photos.length,remarks:v('stn-remarks'),time:new Date().toISOString()
+  });
+  saveDB('stations');
+  const n=parseInt(v('stn-no'));
+  g('stn-no').value=n+1;g('struct-stn').value=n+1;g('spec-stn').value=n+1;
+  g('stn-remarks').value='';g('location-name').value='';
+  photos=[];renderPhotoGrid();
+  toast('Station '+n+' saved ✓');tick();
+}
+
+function saveStructural(){
+  db.structural.push({
+    id:Date.now(),measNo:v('meas-no'),stn:v('struct-stn'),
+    structType:getChip('struct-chips'),
+    strike:v('strike-i'),dipDir:v('dipdir-i'),dip:v('dipamt-i'),
+    trend:v('trend-i'),plunge:v('plunge-i'),pitch:v('pitch-i'),
+    faultType:v('fault-type'),facing:v('facing-dir'),
+    jointSet:v('jset'),aperture:v('aperture'),fill:v('fill-mat'),
+    remarks:v('struct-rem'),time:new Date().toISOString()
+  });
+  saveDB('structural');
+  g('meas-no').value=parseInt(v('meas-no'))+1;
+  g('struct-rem').value='';
+  toast('Structural measurement saved ✓');tick();
+}
+
+function saveSpecimen(){
+  if(!v('spec-id')){toast('⚠️ Please enter a Specimen ID','warn');return;}
+  db.specimens.push({
+    id:Date.now(),specId:v('spec-id'),stn:v('spec-stn'),
+    rockCat:getChip('rockcat-chips'),rockName:v('rock-name'),formation:v('spec-fm'),
+    colourFresh:v('col-f'),colourWx:v('col-w'),grainSize:v('grain-sz'),fabric:v('fabric'),
+    min1:v('min1'),min2:v('min2'),min3:v('min3'),accessory:v('accessory'),fossils:v('fossils'),
+    sedStruct:v('sed-struct'),labReq:v('lab-req'),bagId:v('bag-id'),photoNo:v('spec-photo'),
+    remarks:v('spec-rem'),time:new Date().toISOString()
+  });
+  saveDB('specimens');
+  g('spec-id').value='GF26-'+String(db.specimens.length+1).padStart(3,'0');
+  g('spec-rem').value='';
+  toast('Specimen '+v('spec-id')+' saved ✓');tick();
+}
+
+function saveStrat(){
+  db.strat.push({
+    id:Date.now(),layerNo:v('layer-no'),section:v('section-name'),
+    baseHt:v('base-ht'),topHt:v('top-ht'),thickness:v('thickness'),
+    lith:v('strat-lith'),grainSize:v('strat-grain'),bedThick:v('bed-thick'),
+    contact:v('contact-type'),sedStruct:v('strat-sed'),fossil:v('strat-fossil'),
+    formation:v('strat-fm'),depEnv:v('dep-env'),remarks:v('strat-rem'),time:new Date().toISOString()
+  });
+  saveDB('strat');
+  g('layer-no').value=parseInt(v('layer-no'))+1;
+  g('base-ht').value=v('top-ht');g('top-ht').value='';g('thickness').value='';g('strat-rem').value='';
+  toast('Layer saved ✓');renderStratEntries();tick();
+}
+
+function saveMine(){
+  db.mine.push({
+    id:Date.now(),obsNo:v('mine-obs-no'),mineName:v('mine-name'),
+    seamName:v('seam-name'),seamThick:v('seam-thick'),seamDepth:v('seam-depth'),
+    coalRank:v('coal-rank'),overburden:v('overburden'),roofRock:v('roof-rock'),
+    floorRock:v('floor-rock'),waterInflow:v('water-inflow'),
+    miningMethod:v('mining-method'),structFeatures:v('mine-struct'),
+    remarks:v('mine-rem'),time:new Date().toISOString()
+  });
+  saveDB('mine');
+  g('mine-obs-no').value=parseInt(v('mine-obs-no'))+1;g('mine-rem').value='';
+  toast('Mine observation saved ✓');tick();
+}
+
+function saveDiary(){
+  const dayEl=document.querySelector('.diary-day-btn.active');
+  const day=dayEl?dayEl.dataset.day:'1';
+  const idx=db.diary.findIndex(d=>d.day===day);
+  const entry={day,stations:v('d-stations'),geo:v('d-geo'),struct:v('d-struct'),
+    samples:v('d-samples'),photos:v('d-photos'),problems:v('d-problems'),plan:v('d-plan'),time:new Date().toISOString()};
+  if(idx>=0)db.diary[idx]=entry;else db.diary.push(entry);
+  saveDB('diary');renderDiaryTabs();toast('Day '+day+' diary saved ✓');
+}
+
+// ══ RENDER ══
+const DAYS=['20-Feb','21-Feb','22-Feb','23-Feb','24-Feb','25-Feb','26-Feb','27-Feb','28-Feb','01-Mar'];
+
+function renderDiaryTabs(){
+  const wrap=g('diary-tabs');wrap.innerHTML='';
+  DAYS.forEach((d,i)=>{
+    const day=String(i+1);
+    const btn=document.createElement('button');
+    btn.className='diary-day-btn'+(i===0?' active':'');
+    btn.dataset.day=day;
+    btn.innerHTML='<div style="font-size:.65rem;font-weight:700">D'+day+'</div><div style="font-size:.42rem;color:var(--quartz)">'+d+'</div>';
+    if(db.diary.find(e=>e.day===day))btn.classList.add('filled');
+    btn.onclick=()=>{document.querySelectorAll('.diary-day-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');loadDay(day);};
+    wrap.appendChild(btn);
+  });
+  loadDay('1');
+}
+
+function loadDay(day){
+  const e=db.diary.find(x=>x.day===day)||{};
+  [['d-stations','stations'],['d-geo','geo'],['d-struct','struct'],
+   ['d-samples','samples'],['d-photos','photos'],['d-problems','problems'],['d-plan','plan']]
+   .forEach(([id,key])=>g(id).value=e[key]||'');
+}
+
+function renderStratEntries(){
+  const wrap=g('strat-entries');
+  if(!db.strat.length){wrap.innerHTML='<div class="no-data">No layers logged yet</div>';return;}
+  wrap.innerHTML=db.strat.slice().reverse().slice(0,10).map(l=>`
+    <div class="strat-entry">
+      <span class="thickness-badge">Layer ${l.layerNo} — ${l.thickness||'?'}m</span>
+      <div style="font-weight:600;font-size:.76rem;color:var(--chalk)">${l.lith||'—'} · ${l.grainSize||'—'}</div>
+      <div style="font-size:.62rem;color:var(--quartz);margin-top:2px">${l.section||''} · ${l.depEnv||''}</div>
+    </div>`).join('');
+}
+
+function renderRecords(){
+  g('st-stn').textContent=db.stations.length;g('st-str').textContent=db.structural.length;
+  g('st-spc').textContent=db.specimens.length;g('st-lay').textContent=db.strat.length;
+  const spc=g('session-photo-count');if(spc)spc.textContent=photos.length+' photo(s) in current session'+(photos.length===0?' — take photos in Station tab':'');
+  const wrap=g('records-list');
+  if(!db.stations.length){wrap.innerHTML='<div class="no-data">No station records yet.<br>Start recording in the Station tab.</div>';return;}
+  wrap.innerHTML=db.stations.slice().reverse().map(s=>`
+    <div class="entry-card">
+      <div class="entry-card-hdr"><span class="entry-stn">STN ${s.stn}</span><span class="entry-time">${new Date(s.time).toLocaleString('en-IN')}</span></div>
+      <div style="font-size:.76rem;color:var(--chalk);margin-bottom:4px">${s.location||s.area} — Day ${s.day}</div>
+      <div class="entry-tags">
+        <span class="entry-tag" style="background:var(--green-dim);color:var(--green)">📍 ${s.lat}, ${s.lon}</span>
+        ${s.alt?'<span class="entry-tag">↑ '+s.alt+'m</span>':''}
+        <span class="entry-tag">${s.weather}</span>
+        ${s.photoCount?'<span class="entry-tag" style="background:var(--amber-dim);color:var(--amber)">📷 '+s.photoCount+' photos</span>':''}
+        ${s.remarks?'<span class="entry-tag">📝 Notes</span>':''}
+      </div>
+    </div>`).join('');
+}
+
+// ══ EXPORT ══
+function exportCSV(key){
+  const data=db[key];
+  if(!data||!data.length){toast('No '+key+' data to export','warn');return;}
+  const hdrs=Object.keys(data[0]).filter(k=>k!=='id');
+  let csv=hdrs.join(',')+'\n';
+  data.forEach(row=>{
+    csv+=hdrs.map(h=>{let val=row[h]||'';if(String(val).includes(',')||String(val).includes('"')||String(val).includes('\n'))val='"'+String(val).replace(/"/g,'""')+'"';return val;}).join(',')+'\n';
+  });
+  dl(csv,'GeoField2026_'+key+'_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+  toast(key+' CSV exported ✓');
+}
+function exportAll(){Object.keys(KEYS).forEach((k,i)=>setTimeout(()=>exportCSV(k),i*500));}
+function dl(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+
+// ══ CLEAR ══
+function clearAll(){
+  if(!confirm('⚠️ Permanently delete ALL field records from this device?\n\nExport data first!\n\nAre you absolutely sure?'))return;
+  Object.keys(KEYS).forEach(k=>{db[k]=[];localStorage.removeItem(KEYS[k]);});
+  photos=[];renderPhotoGrid();toast('All data cleared');renderRecords();tick();
+}
+
+// ══ TOAST ══
+function toast(msg,type='success'){
+  const t=g('toast');t.textContent=msg;t.className='toast '+type;
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ══ INIT ══
+window.addEventListener('load',()=>{
+  renderDiaryTabs();renderStratEntries();tick();
+  g('spec-id').value='GF26-'+String(db.specimens.length+1).padStart(3,'0');
+  setTimeout(()=>{if(navigator.geolocation)getSingleGPS();},600);
+  if(typeof DeviceOrientationEvent==='undefined')setPerm('sensor','denied');
+});
+</script>
+</body>
+</html>
